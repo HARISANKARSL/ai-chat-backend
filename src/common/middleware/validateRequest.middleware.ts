@@ -10,7 +10,7 @@ const validateRequest =
   (schema: ZodType) =>
   (
     req: Request,
-    _res: Response,
+    res: Response,
     next: NextFunction
   ): void => {
 
@@ -20,18 +20,26 @@ const validateRequest =
       params: req.params,
     });
 
-   if (!result.success) {
-  _res.status(400).json({
-    success: false,
-    errors: result.error.issues,
-  });
+    if (!result.success) {
+      const formattedErrors: Record<string, string> = {};
 
-  return;
-}
+      result.error.issues.forEach((issue) => {
+        const field = issue.path[1] as string;
+        formattedErrors[field] = issue.message;
+      });
 
+      res.status(400).json({
+        success: false,
+        message: "Validation Failed",
+        showToast: true,
+        errors: formattedErrors,
+      });
+
+      return;
+    }
 
     console.log("Validation Passed");
-    console.log(result);
+    console.log(result.data);
 
     next();
   };

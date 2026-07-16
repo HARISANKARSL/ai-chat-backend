@@ -1,18 +1,19 @@
 class AppError extends Error {
-  public readonly statusCode: number;
-
-  public readonly code: string;
+  statusCode: number;
+  errorCode: string;
+  showToast: boolean;
 
   constructor(
     message: string,
-    statusCode = 500,
-    code = "INTERNAL_SERVER_ERROR"
+    statusCode: number,
+    errorCode: string,
+    showToast = true
   ) {
     super(message);
 
     this.statusCode = statusCode;
-
-    this.code = code;
+    this.errorCode = errorCode;
+    this.showToast = showToast;
 
     Error.captureStackTrace(this, this.constructor);
   }

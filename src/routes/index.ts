@@ -1,20 +1,23 @@
 import { Router } from "express";
 
 import healthRoute from "./health.route.js";
-import validateRequest from "../common/middleware/validateRequest.middleware.js";
-import { registerSchema } from "../modules/auth/auth.validation.js";
-import { register } from "../modules/auth/auth.controller.js";
+import authRoute from "../modules/auth/auth.route.js";
+import { authenticate } from "../common/middleware/auth.middleware.js";
+import userRoutes from "../modules/user/user.route.js";
 
 const router = Router();
 
-// Health Routes
 router.use("/health", healthRoute);
-
-
-router.post(
-  "/register",
-  validateRequest(registerSchema),
-  register
+router.get(
+  "/test",
+  authenticate,
+  (_req, res) => {
+    res.json({
+      message: "Protected Route",
+    });
+  }
 );
+router.use("/auth", authRoute);
+router.use("/users", userRoutes);
 
 export default router;

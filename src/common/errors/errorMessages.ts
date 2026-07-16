@@ -14,6 +14,8 @@ const ErrorMessages = {
   INVALID_CREDENTIALS: "Invalid email or password",
 
   EMAIL_ALREADY_EXISTS: "Email already exists",
+  INVALID_REFRESH_TOKEN: "Invalid refresh token.",
+  SESSION_EXPIRED: "Session expired. Please login again.",
 };
 
 export default ErrorMessages;
