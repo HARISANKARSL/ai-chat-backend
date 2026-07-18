@@ -15,10 +15,14 @@ import {
   logoutAllDevices,
 } from "./auth.service.js";
 import asyncHandler from "../../common/handlers/asyncHandler.js";
+import { LoginInput } from "./auth.types.js";
 
 export const register = asyncHandler(
   async (req: Request, res: Response) => {
-    const user = await registerUser(req.body);
+    const user = await registerUser(req.body, {
+      ip: req.ip ?? "",
+      userAgent: req.get("user-agent") ?? "",
+    });
 
     return successResponse({
       res,
@@ -32,7 +36,10 @@ export const register = asyncHandler(
 
 export const login = asyncHandler(
   async (req: Request, res: Response) => {
-    const result = await loginUser(req.body);
+    const result = await loginUser(req.body, {
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+    });
 
     return successResponse({
       res,

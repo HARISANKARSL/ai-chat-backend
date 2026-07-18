@@ -42,9 +42,9 @@ class RedisService {
    */
   async delete(
     key: string
-  ): Promise<void> {
+  ): Promise<number> {
     try {
-      await redisClient.del(key);
+      return await redisClient.del(key);
     } catch (error) {
       console.error("Redis DELETE Error:", error);
       throw error;
@@ -58,10 +58,15 @@ class RedisService {
     key: string
   ): Promise<boolean> {
     try {
-      const result = await redisClient.exists(key);
+      const result =
+        await redisClient.exists(key);
+
       return result === 1;
     } catch (error) {
-      console.error("Redis EXISTS Error:", error);
+      console.error(
+        "Redis EXISTS Error:",
+        error
+      );
       throw error;
     }
   }
@@ -79,7 +84,27 @@ class RedisService {
         ttlInSeconds
       );
     } catch (error) {
-      console.error("Redis EXPIRE Error:", error);
+      console.error(
+        "Redis EXPIRE Error:",
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Increment a key
+   */
+  async increment(
+    key: string
+  ): Promise<number> {
+    try {
+      return await redisClient.incr(key);
+    } catch (error) {
+      console.error(
+        "Redis INCR Error:",
+        error
+      );
       throw error;
     }
   }
@@ -93,7 +118,10 @@ class RedisService {
     try {
       return await redisClient.ttl(key);
     } catch (error) {
-      console.error("Redis TTL Error:", error);
+      console.error(
+        "Redis TTL Error:",
+        error
+      );
       throw error;
     }
   }
@@ -101,25 +129,26 @@ class RedisService {
   /**
    * Delete all keys matching a pattern
    */
- async deleteByPattern(
-  pattern: string
-): Promise<number> {
-  try {
-    const keys = await redisClient.keys(pattern);
+  async deleteByPattern(
+    pattern: string
+  ): Promise<number> {
+    try {
+      const keys =
+        await redisClient.keys(pattern);
 
-    if (keys.length === 0) {
-      return 0;
+      if (keys.length === 0) {
+        return 0;
+      }
+
+      return await redisClient.del(keys);
+    } catch (error) {
+      console.error(
+        "Redis Pattern Delete Error:",
+        error
+      );
+      throw error;
     }
-
-    return await redisClient.del(keys);
-  } catch (error) {
-    console.error(
-      "Redis Pattern Delete Error:",
-      error
-    );
-    throw error;
   }
-}
 }
 
 export const redisService =

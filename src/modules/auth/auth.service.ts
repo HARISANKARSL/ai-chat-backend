@@ -1,38 +1,92 @@
+import bcrypt from "bcrypt";
+import crypto from "crypto";
+
 import AppError from "../../common/errors/AppError.js";
 import ErrorCodes from "../../common/errors/errorCodes.js";
 import ErrorMessages from "../../common/errors/errorMessages.js";
+
 import { hashPassword } from "../../common/utils/hash.js";
-import bcrypt from "bcrypt";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+} from "../../common/utils/jwt.js";
+import { hashToken } from "../../common/utils/token.js";
+
+import { redisService } from "../../common/redis/service.js";
+import { redisKeys } from "../../common/redis/keys.js";
+
 import {
   findByEmail,
   createUser,
   findById,
 } from "../user/user.repository.js";
 
-import type { LoginInput, LogoutInput, RefreshTokenInput, RegisterInput } from "./auth.types.js";
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "../../common/utils/jwt.js";
-import { redisService } from "../../common/redis/service.js";
-import { redisKeys } from "../../common/redis/keys.js";
-import { hashToken } from "../../common/utils/token.js";
+import {
+  logSecurityEvent,
+} from "../security/security.service.js";
+
+import { SecurityEvent } from "../security/security.constants.js";
+
+import type {
+  LoginInput,
+  LogoutInput,
+  RefreshTokenInput,
+  RegisterInput,
+} from "./auth.types.js";
+
+import type { RequestInfo } from "../../types/request-info.js";
+
+
+// ==========================
+// REGISTER
+// ==========================
 
 export const registerUser = async (
-  input: RegisterInput
+  input: RegisterInput,
+  requestInfo: RequestInfo
 ) => {
   const existingUser = await findByEmail(input.email);
 
   if (existingUser) {
+    await logSecurityEvent({
+      event: SecurityEvent.REGISTER,
+      success: false,
+      ip: requestInfo.ip ?? "",
+      userAgent: requestInfo.userAgent ?? "",
+      deviceId: "",
+      metadata: {
+        email: input.email,
+        reason: "EMAIL_ALREADY_EXISTS",
+      },
+    });
+
     throw new AppError(
       ErrorMessages.EMAIL_ALREADY_EXISTS,
       409,
       ErrorCodes.EMAIL_ALREADY_EXISTS
     );
   }
-const hashedPassword = await hashPassword(input.password);
+
+  const hashedPassword = await hashPassword(input.password);
+
   const user = await createUser({
     name: input.name,
     email: input.email,
-      password: hashedPassword
-    
+    password: hashedPassword,
+  });
+
+  await logSecurityEvent({
+    userId: user.id,
+    event: SecurityEvent.REGISTER,
+    success: true,
+    ip: requestInfo.ip ?? "",
+    userAgent: requestInfo.userAgent ?? "",
+    deviceId: "",
+    metadata: {
+      email: user.email,
+      reason: "USER_CREATED",
+    },
   });
 
   return {
@@ -43,13 +97,29 @@ const hashedPassword = await hashPassword(input.password);
 };
 
 
+// ==========================
+// LOGIN
+// ==========================
+
 export const loginUser = async (
-  input: LoginInput
+  input: LoginInput,
+  requestInfo: RequestInfo
 ) => {
-  // Find User
   const user = await findByEmail(input.email);
 
   if (!user) {
+    await logSecurityEvent({
+      event: SecurityEvent.LOGIN_FAILED,
+      success: false,
+      ip: requestInfo.ip ?? "",
+      userAgent: requestInfo.userAgent ?? "",
+      deviceId: "",
+      metadata: {
+        email: input.email,
+        reason: "USER_NOT_FOUND",
+      },
+    });
+
     throw new AppError(
       ErrorMessages.INVALID_CREDENTIALS,
       401,
@@ -57,13 +127,25 @@ export const loginUser = async (
     );
   }
 
-  // Verify Password
   const isPasswordValid = await bcrypt.compare(
     input.password,
     user.password
   );
 
   if (!isPasswordValid) {
+    await logSecurityEvent({
+      userId: user.id,
+      event: SecurityEvent.LOGIN_FAILED,
+      success: false,
+      ip: requestInfo.ip ?? "",
+      userAgent: requestInfo.userAgent ?? "",
+      deviceId: "",
+      metadata: {
+        email: user.email,
+        reason: "INVALID_PASSWORD",
+      },
+    });
+
     throw new AppError(
       ErrorMessages.INVALID_CREDENTIALS,
       401,
@@ -71,40 +153,37 @@ export const loginUser = async (
     );
   }
 
-  // Generate Tokens
-  const accessToken =
-    generateAccessToken(user.id);
+  const accessToken = generateAccessToken(user.id);
 
-  const refreshToken =
-    generateRefreshToken(user.id);
+  const refreshToken = generateRefreshToken(user.id);
 
-  // Generate Device Id
-  const deviceId =
-    crypto.randomUUID();
+  const deviceId = crypto.randomUUID();
 
-const hashedRefreshToken =
-  hashToken(refreshToken);
-console.log("================================");
-console.log("User ID:", user.id);
-console.log("Device ID:", deviceId);
-console.log("Refresh Key:", redisKeys.refreshToken(user.id, deviceId));
-console.log("Refresh Token:", refreshToken);
-console.log("Hashed Refresh Token:", hashedRefreshToken);
-console.log("================================");
-await redisService.set(
-  redisKeys.refreshToken(
-    user.id,
-    deviceId
-  ),
-  hashedRefreshToken,
-  60 * 60 * 24 * 30
-);
+  const hashedRefreshToken = hashToken(refreshToken);
+
+  await redisService.set(
+    redisKeys.refreshToken(user.id, deviceId),
+    hashedRefreshToken,
+    60 * 60 * 24 * 30
+  );
+
+  await logSecurityEvent({
+    userId: user.id,
+    event: SecurityEvent.LOGIN_SUCCESS,
+    success: true,
+    ip: requestInfo.ip ?? "",
+    userAgent: requestInfo.userAgent ?? "",
+    deviceId,
+    metadata: {
+      email: user.email,
+      reason: "LOGIN_SUCCESS",
+    },
+  });
 
   return {
     accessToken,
     refreshToken,
     deviceId,
-
     user: {
       id: user.id,
       name: user.name,
@@ -113,23 +192,24 @@ await redisService.set(
   };
 };
 
+
+// ==========================
+// REFRESH TOKEN
+// ==========================
+
 export const refreshToken = async (
   input: RefreshTokenInput
 ) => {
-  // 1. Verify JWT
   const payload = verifyRefreshToken(
     input.refreshToken
   );
 
-  // 2. Redis Key
   const redisKey = redisKeys.refreshToken(
     payload.userId,
     input.deviceId
   );
 
-  // 3. Get Stored Hash
-  const storedHash =
-    await redisService.get(redisKey);
+  const storedHash = await redisService.get(redisKey);
 
   if (!storedHash) {
     throw new AppError(
@@ -139,39 +219,59 @@ export const refreshToken = async (
     );
   }
 
-  // 4. Hash Incoming Refresh Token
   const incomingHash = hashToken(
     input.refreshToken
   );
 
-  // 5. Compare Hashes
   if (storedHash !== incomingHash) {
+    await redisService.deleteByPattern(
+      `refresh:${payload.userId}:*`
+    );
+
+    await logSecurityEvent({
+      userId: payload.userId,
+      event: SecurityEvent.TOKEN_REUSE,
+      success: false,
+      deviceId: input.deviceId,
+      metadata: {
+        reason: "REFRESH_TOKEN_REUSE_DETECTED",
+      },
+    });
+
     throw new AppError(
-      "Invalid refresh token.",
+      ErrorMessages.TOKEN_REUSE_DETECTED,
       401,
-      "INVALID_REFRESH_TOKEN"
+      ErrorCodes.TOKEN_REUSE_DETECTED
     );
   }
 
-  // 6. Generate New Tokens
-  const accessToken =
-    generateAccessToken(payload.userId);
+  const accessToken = generateAccessToken(
+    payload.userId
+  );
 
-  const newRefreshToken =
-    generateRefreshToken(payload.userId);
+  const newRefreshToken = generateRefreshToken(
+    payload.userId
+  );
 
-  // 7. Hash New Refresh Token
   const newRefreshHash =
     hashToken(newRefreshToken);
 
-  // 8. Replace Old Hash
   await redisService.set(
     redisKey,
     newRefreshHash,
     60 * 60 * 24 * 30
   );
 
-  // 9. Return Tokens
+  await logSecurityEvent({
+    userId: payload.userId,
+    event: SecurityEvent.TOKEN_REFRESH,
+    success: true,
+    deviceId: input.deviceId,
+    metadata: {
+      reason: "TOKEN_REFRESHED",
+    },
+  });
+
   return {
     accessToken,
     refreshToken: newRefreshToken,
@@ -180,33 +280,45 @@ export const refreshToken = async (
 };
 
 
+// ==========================
+// LOGOUT
+// ==========================
+
 export const logoutUser = async (
   userId: string,
   input: LogoutInput
 ): Promise<void> => {
+
   const redisKey = redisKeys.refreshToken(
     userId,
     input.deviceId
   );
 
-  console.log("Deleting Key:", redisKey);
-
-  const exists = await redisService.exists(redisKey);
-  console.log("Exists Before Delete:", exists);
-
   await redisService.delete(redisKey);
 
-  const existsAfter = await redisService.exists(redisKey);
-  console.log("Exists After Delete:", existsAfter);
+  await logSecurityEvent({
+    userId,
+    event: SecurityEvent.LOGOUT,
+    success: true,
+    deviceId: input.deviceId,
+    metadata: {
+      reason: "LOGOUT_SUCCESS",
+    },
+  });
 };
+
+
+// ==========================
+// LOGOUT ALL
+// ==========================
+
 export const logoutAllDevices = async (
   userId: string
 ): Promise<void> => {
-  const pattern = `refresh:${userId}:*`;
 
   const deleted =
     await redisService.deleteByPattern(
-      pattern
+      `refresh:${userId}:*`
     );
 
   if (deleted === 0) {
@@ -216,11 +328,27 @@ export const logoutAllDevices = async (
       ErrorCodes.SESSION_EXPIRED
     );
   }
+
+  await logSecurityEvent({
+    userId,
+    event: SecurityEvent.LOGOUT_ALL,
+    success: true,
+    deviceId: "",
+    metadata: {
+      reason: "LOGOUT_ALL_DEVICES",
+    },
+  });
 };
+
+
+// ==========================
+// CURRENT USER
+// ==========================
 
 export const getCurrentUser = async (
   userId: string
 ) => {
+
   const user = await findById(userId);
 
   if (!user) {

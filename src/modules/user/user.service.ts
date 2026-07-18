@@ -15,6 +15,8 @@ import {
   updateUser,
 } from "./user.repository.js";
 import { UpdateProfileInput } from "./user.types.js";
+import { logSecurityEvent } from "../security/security.service.js";
+import { SecurityEvent } from "../security/security.constants.js";
 
 export const getAllUsers = async () => {
   return await findAllUsers();
@@ -74,6 +76,16 @@ export const changePassword = async (
   );
 
   if (!isPasswordValid) {
+    await logSecurityEvent({
+      userId,
+      event: SecurityEvent.PASSWORD_CHANGED,
+      success: false,
+      deviceId: "",
+      metadata: {
+        reason: "INVALID_CURRENT_PASSWORD",
+      },
+    });
+
     throw new AppError(
       ErrorMessages.INVALID_CREDENTIALS,
       401,
@@ -89,6 +101,16 @@ export const changePassword = async (
     userId,
     hashedPassword
   );
+
+  await logSecurityEvent({
+    userId,
+    event: SecurityEvent.PASSWORD_CHANGED,
+    success: true,
+    deviceId: "",
+    metadata: {
+      reason: "PASSWORD_CHANGED",
+    },
+  });
 };
 
 export const deleteMyAccount = async (
@@ -103,4 +125,14 @@ export const deleteMyAccount = async (
       ErrorCodes.USER_NOT_FOUND
     );
   }
+
+  await logSecurityEvent({
+    userId,
+    event: SecurityEvent.DELETE_ACCOUNT,
+    success: true,
+    deviceId: "",
+    metadata: {
+      reason: "ACCOUNT_DELETED",
+    },
+  });
 };
