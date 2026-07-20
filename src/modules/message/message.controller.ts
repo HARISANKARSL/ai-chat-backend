@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import * as messageService from "./message.service.js";
+import { AuthRequest } from "../../types/auth-request.js";
 
 type ConversationParams = {
   conversationId: string;
@@ -63,6 +64,29 @@ export const getMessage = async (
 
     return res.status(200).json({
       success: true,
+      data: message,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+export const markMessageSeenController = async (
+  req: AuthRequest & { params: MessageParams },
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const message = await messageService.markSeen(
+      req.params.messageId,
+      req.user.userId
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Message marked as seen.",
       data: message,
     });
   } catch (error) {

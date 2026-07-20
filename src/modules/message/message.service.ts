@@ -4,6 +4,7 @@ import {
   createMessage,
   findConversationMessages,
   findMessageById,
+  markMessageSeen,
 } from "./message.repository.js";
 
 import {
@@ -15,6 +16,9 @@ import {
   CreateMessageInput,
   MessageType,
 } from "./message.types.js";
+
+import { socketService } from "../../socket/socket.service.js";
+import { SOCKET_EVENTS } from "../../socket/socket.events.js";
 
 export const sendMessage = async (
   input: CreateMessageInput
@@ -41,7 +45,9 @@ export const sendMessage = async (
   }
 
   // Validate message
-  const hasContent = input.content?.trim().length > 0;
+  const hasContent =
+    input.content?.trim().length > 0;
+
   const hasAttachments =
     input.attachments &&
     input.attachments.length > 0;
@@ -56,11 +62,13 @@ export const sendMessage = async (
   const payload = {
     ...input,
     messageType:
-      input.messageType ?? MessageType.TEXT,
+      input.messageType ??
+      MessageType.TEXT,
   };
 
   // Create message
-  const message = await createMessage(payload);
+  const message =
+    await createMessage(payload);
 
   // Update conversation
   await updateLastMessage(
@@ -68,35 +76,76 @@ export const sendMessage = async (
     message._id.toString()
   );
 
+  // Emit realtime message to all participants except sender
+  await socketService.emitToConversation(
+    conversation.participants.map((participant) =>
+      participant.toString()
+    ),
+    input.sender.toString(),
+    SOCKET_EVENTS.NEW_MESSAGE,
+    message
+  );
+
   return message;
 };
 
-export const getConversationMessages = async (
-  conversationId: string
-) => {
-  const conversation = await findConversationById(
-    conversationId
-  );
+export const getConversationMessages =
+  async (
+    conversationId: string
+  ) => {
+    const conversation =
+      await findConversationById(
+        conversationId
+      );
 
-  if (!conversation) {
-    throw new Error("Conversation not found.");
-  }
+    if (!conversation) {
+      throw new Error(
+        "Conversation not found."
+      );
+    }
 
-  return await findConversationMessages(
-    conversationId
-  );
-};
+    return await findConversationMessages(
+      conversationId
+    );
+  };
 
 export const getMessage = async (
   messageId: string
 ) => {
-  const message = await findMessageById(
-    messageId
-  );
+  const message =
+    await findMessageById(messageId);
 
   if (!message) {
     throw new Error("Message not found.");
   }
 
   return message;
+};
+
+
+export const markSeen = async (
+  messageId: string,
+  userId: string
+) => {
+  const message =
+    await findMessageById(messageId);
+
+  if (!message) {
+    throw new Error("Message not found.");
+  }
+
+  const updated =
+    await markMessageSeen(
+      messageId,
+      userId
+    );
+
+  await socketService.emitToConversation(
+    [message.sender.toString()],
+    userId,
+    SOCKET_EVENTS.MESSAGE_SEEN,
+    updated
+  );
+
+  return updated;
 };

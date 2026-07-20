@@ -58,15 +58,11 @@ class RedisService {
     key: string
   ): Promise<boolean> {
     try {
-      const result =
-        await redisClient.exists(key);
+      const result = await redisClient.exists(key);
 
       return result === 1;
     } catch (error) {
-      console.error(
-        "Redis EXISTS Error:",
-        error
-      );
+      console.error("Redis EXISTS Error:", error);
       throw error;
     }
   }
@@ -84,10 +80,7 @@ class RedisService {
         ttlInSeconds
       );
     } catch (error) {
-      console.error(
-        "Redis EXPIRE Error:",
-        error
-      );
+      console.error("Redis EXPIRE Error:", error);
       throw error;
     }
   }
@@ -101,10 +94,7 @@ class RedisService {
     try {
       return await redisClient.incr(key);
     } catch (error) {
-      console.error(
-        "Redis INCR Error:",
-        error
-      );
+      console.error("Redis INCR Error:", error);
       throw error;
     }
   }
@@ -118,10 +108,7 @@ class RedisService {
     try {
       return await redisClient.ttl(key);
     } catch (error) {
-      console.error(
-        "Redis TTL Error:",
-        error
-      );
+      console.error("Redis TTL Error:", error);
       throw error;
     }
   }
@@ -144,6 +131,84 @@ class RedisService {
     } catch (error) {
       console.error(
         "Redis Pattern Delete Error:",
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Add members to a Redis Set
+   */
+  async sAdd(
+    key: string,
+    ...members: string[]
+  ): Promise<number> {
+    try {
+      return await redisClient.sAdd(
+        key,
+        members
+      );
+    } catch (error) {
+      console.error(
+        "Redis SADD Error:",
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Remove members from a Redis Set
+   */
+  async sRem(
+    key: string,
+    ...members: string[]
+  ): Promise<number> {
+    try {
+      return await redisClient.sRem(
+        key,
+        members
+      );
+    } catch (error) {
+      console.error(
+        "Redis SREM Error:",
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get all members of a Redis Set
+   */
+  async sMembers(
+    key: string
+  ): Promise<string[]> {
+    try {
+      return await redisClient.sMembers(
+        key
+      );
+    } catch (error) {
+      console.error(
+        "Redis SMEMBERS Error:",
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get the number of members in a Redis Set
+   */
+  async sCard(
+    key: string
+  ): Promise<number> {
+    try {
+      return await redisClient.sCard(key);
+    } catch (error) {
+      console.error(
+        "Redis SCARD Error:",
         error
       );
       throw error;

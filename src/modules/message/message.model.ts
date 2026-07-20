@@ -63,12 +63,19 @@ const messageSchema = new Schema<MessageDocument>(
             default: null,
         },
 
-        seenBy: [
-            {
-                type: Schema.Types.ObjectId,
-                ref: "User",
-            },
-        ],
+       seenBy: [
+  {
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    seenAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+],
 
         deletedFor: [
             {

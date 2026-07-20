@@ -5,6 +5,10 @@ export const config = {
 
   port: env.PORT,
 
+  cors: {
+    origin: env.CORS_ORIGIN,
+  },
+
   database: {
     uri: env.MONGODB_URI,
   },

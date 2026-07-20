@@ -15,18 +15,17 @@ const envSchema = z.object({
   MONGODB_URI: z.string(),
 
   JWT_ACCESS_SECRET: z.string(),
-
   JWT_REFRESH_SECRET: z.string(),
 
   JWT_ACCESS_EXPIRES_IN: z.string(),
-
   JWT_REFRESH_EXPIRES_IN: z.string(),
 
   REDIS_HOST: z.string(),
-
   REDIS_PORT: z.coerce.number(),
-
   REDIS_PASSWORD: z.string().optional(),
+
+  // CORS
+  CORS_ORIGIN: z.string(),
 });
 
 const parsed = envSchema.safeParse(process.env);

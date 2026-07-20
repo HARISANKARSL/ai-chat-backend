@@ -1,10 +1,12 @@
+import http from "http";
+
 import app from "./app.js";
 import { logger } from "./logger/logger.js";
 import connectDatabase from "./config/database.js";
 import { config } from "./config/index.js";
 
 import { connectRedis } from "./common/redis/redis.js";
-import { redisService } from "./common/redis/service.js";
+import { initializeSocket } from "./socket/index.js";
 
 const startServer = async (): Promise<void> => {
   try {
@@ -14,20 +16,20 @@ const startServer = async (): Promise<void> => {
 
     // Redis Connection
     await connectRedis();
+    logger.info("✅ Redis Connected Successfully");
 
+    // Create HTTP Server
+    const server = http.createServer(app);
 
+    // Initialize Socket.IO
+    initializeSocket(server);
 
-   
-
-    // Start Express Server
-    app.listen(config.port, () => {
-      logger.info(
-        `🚀 Server running on http://localhost:${config.port}`
-      );
+    // Start Server
+    server.listen(config.port, () => {
+      logger.info(`🚀 Server running on http://localhost:${config.port}`);
     });
   } catch (error) {
     logger.error(error);
-
     process.exit(1);
   }
 };

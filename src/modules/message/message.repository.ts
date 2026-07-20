@@ -52,3 +52,49 @@ export const deleteMessage = async (
     }
   );
 };
+
+
+export const markMessageSeen = async (
+  messageId: string,
+  userId: string
+) => {
+  return await messageModel.findByIdAndUpdate(
+    messageId,
+    {
+      $addToSet: {
+        seenBy: userId,
+      },
+    },
+    {
+      new: true,
+    }
+    )
+    .populate("sender", "username fullName profileImage")
+    .populate("seenBy", "username fullName profileImage");
+};
+
+
+// export const getConversationMessages = async (
+//   conversationId: string,
+//   limit: number,
+//   cursor?: string
+// ) => {
+//   const query: Record<string, unknown> = {
+//     conversation: conversationId,
+//   };
+
+//   if (cursor) {
+//     query._id = {
+//       $lt: cursor,
+//     };
+//   }
+
+// const messages = await messageModel.find(query)
+//     .sort({ _id: -1 })
+//     .limit(limit)
+//     .populate("sender", "username fullName profileImage")
+//     .populate("replyTo")
+//     .lean();
+
+//   return messages.reverse();
+// };
