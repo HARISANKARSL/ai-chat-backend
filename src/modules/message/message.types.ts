@@ -1,54 +1,65 @@
 import { Types } from "mongoose";
+
 export enum MessageType {
   TEXT = "TEXT",
   IMAGE = "IMAGE",
-  FILE = "FILE",
-  AUDIO = "AUDIO",
   VIDEO = "VIDEO",
+  AUDIO = "AUDIO",
+  FILE = "FILE",
   SYSTEM = "SYSTEM",
   AI = "AI",
 }
 
-export type Attachment = {
-    url: string;
-    fileName: string;
-    mimeType: string;
-    size: number;
-};
+export interface Attachment {
+  url: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+}
 
-export type MessageDocument = {
-    _id: Types.ObjectId;
+export interface SeenInfo {
+  user: Types.ObjectId;
+  seenAt: Date;
+}
 
-    conversation: Types.ObjectId;
+export interface MessageDocument {
+  _id: Types.ObjectId;
 
-    sender: Types.ObjectId;
+  conversation: Types.ObjectId;
 
-    content: string;
+  sender: Types.ObjectId;
 
-    messageType: MessageType;
+  content: string;
 
-    attachments?: Attachment[];
+  messageType: MessageType;
 
-    replyTo?: Types.ObjectId;
+  attachments: Attachment[];
 
-    seenBy: Types.ObjectId[];
+  replyTo?: Types.ObjectId | null;
 
-    deletedFor: Types.ObjectId[];
+  seenBy: SeenInfo[];
 
-    isEdited: boolean;
+  deletedFor: Types.ObjectId[];
 
-    isDeleted: boolean;
+  isEdited: boolean;
 
-    createdAt: Date;
+  isDeleted: boolean;
 
-    updatedAt: Date;
-};
+  createdAt: Date;
 
-export type CreateMessageInput = {
-    conversation: Types.ObjectId;
-    sender: Types.ObjectId;
-    content: string;
-    messageType: MessageType;
-    attachments?: Attachment[];
-    replyTo?: Types.ObjectId;
-};
+  updatedAt: Date;
+}
+
+export interface CreateMessageInput {
+  conversation: Types.ObjectId;
+
+  sender: Types.ObjectId;
+
+  content: string;
+
+  messageType?: MessageType;
+
+  attachments?: Attachment[];
+
+  replyTo?: Types.ObjectId;
+}

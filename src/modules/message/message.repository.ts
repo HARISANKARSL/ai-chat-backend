@@ -10,20 +10,36 @@ export const createMessage = async (
 export const findMessageById = async (
   messageId: string
 ) => {
-  return await messageModel.findById(messageId);
-};
-
-export const findConversationMessages = async (
-  conversationId: string
-) => {
   return await messageModel
-    .find({
-      conversation: conversationId,
-      isDeleted: false,
-    })
-    .sort({ createdAt: 1 })
+    .findById(messageId)
     .populate("sender", "username fullName profileImage")
     .populate("replyTo");
+};
+
+export const getConversationMessages = async (
+  conversationId: string,
+  limit = 20,
+  cursor?: string
+) => {
+  const query: Record<string, unknown> = {
+    conversation: conversationId,
+    isDeleted: false,
+  };
+
+  if (cursor) {
+    query._id = {
+      $lt: cursor,
+    };
+  }
+
+  const messages = await messageModel
+    .find(query)
+    .sort({ _id: -1 })
+    .limit(limit)
+    .populate("sender", "username fullName profileImage")
+    .populate("replyTo");
+
+  return messages.reverse();
 };
 
 export const updateMessage = async (
@@ -53,48 +69,25 @@ export const deleteMessage = async (
   );
 };
 
-
 export const markMessageSeen = async (
   messageId: string,
   userId: string
 ) => {
-  return await messageModel.findByIdAndUpdate(
-    messageId,
-    {
-      $addToSet: {
-        seenBy: userId,
+  return await messageModel
+    .findByIdAndUpdate(
+      messageId,
+      {
+        $addToSet: {
+          seenBy: {
+            user: userId,
+            seenAt: new Date(),
+          },
+        },
       },
-    },
-    {
-      new: true,
-    }
+      {
+        new: true,
+      }
     )
     .populate("sender", "username fullName profileImage")
-    .populate("seenBy", "username fullName profileImage");
+    .populate("seenBy.user", "username fullName profileImage");
 };
-
-
-// export const getConversationMessages = async (
-//   conversationId: string,
-//   limit: number,
-//   cursor?: string
-// ) => {
-//   const query: Record<string, unknown> = {
-//     conversation: conversationId,
-//   };
-
-//   if (cursor) {
-//     query._id = {
-//       $lt: cursor,
-//     };
-//   }
-
-// const messages = await messageModel.find(query)
-//     .sort({ _id: -1 })
-//     .limit(limit)
-//     .populate("sender", "username fullName profileImage")
-//     .populate("replyTo")
-//     .lean();
-
-//   return messages.reverse();
-// };
